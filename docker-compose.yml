@@ -1,0 +1,25 @@
+version:  '3.7'
+services:
+  redes-notebooks:
+      env_file: 
+        - .env
+      build:
+        context: ./notebooks
+        dockerfile: Dockerfile
+      deploy:
+        resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu]
+      volumes:
+        - ./data:/tf/datasets
+        - ./notebooks:/tf/notebooks
+        - /opt/ssl-certs/jupyter:/etc/ssl/notebook
+      ports:
+        - 3088:8888
+      container_name: redes_jupyter_notebook
+
+
+
