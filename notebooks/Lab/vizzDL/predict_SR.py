@@ -120,18 +120,18 @@ class Predictor:
         self.geo = self.feature['features'][0]['geometry']
         self.polygon = shape(self.geo)
 
-        self.region = list(self.polygon.bounds)
+        self.bounds = list(self.polygon.bounds)
 
         visSave = ee_collection_specifics.vizz_params_rgb(self.slugs[0])
         scale = ee_collection_specifics.ee_scale(self.slugs[0])
-        url = self.composites[0].getThumbURL({**visSave,**{'scale': scale}, **{'region':self.region}})
+        url = self.composites[0].getThumbURL({**visSave,**{'scale': scale}, **{'region':self.bounds}})
 
         response = requests.get(url)
         self.image = np.array(Image.open(io.BytesIO(response.content))) 
         self.image = self.image.reshape((1,) + self.image.shape) 
 
         # Display input image on map
-        xda = from_np_to_xr(self.image[0,:,:,:], self.region, layer_name = 'Input image')
+        xda = from_np_to_xr(self.image[0,:,:,:], self.bounds, layer_name = 'Input image')
         l = xda.leaflet.plot(self.map, rgb_dim='band', persist=True)
 
     def predict(self, norm_range=[[0,1], [-1,1]]):
@@ -163,5 +163,5 @@ class Predictor:
 
             self.predictions.append(prediction)
 
-            xda = from_np_to_xr(prediction[0,:,:,:], self.region, layer_name = f'Prediction {str(n)}')
+            xda = from_np_to_xr(prediction[0,:,:,:], self.bounds, layer_name = f'Prediction {str(n)}')
             l = xda.leaflet.plot(self.map, rgb_dim='band', persist=True)

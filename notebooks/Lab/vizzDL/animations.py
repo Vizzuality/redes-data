@@ -11,7 +11,7 @@ import ipyleaflet as ipyl
 from shapely.geometry import shape
 
 from . import ee_collection_specifics
-from .utils import normalize_01, normalize_m11, denormalize_01, denormalize_m11 
+from .utils import from_np_to_xr, normalize_01, normalize_m11, denormalize_01, denormalize_m11 
 
 class Animation:
     """
@@ -178,6 +178,7 @@ class Animation:
         # Area of Interest
         self.region = self.geometry.get('features')[0].get('geometry').get('coordinates')
         self.polygon = ee.Geometry.Polygon(self.region)
+        self.bounds = list(shape(self.geometry.get('features')[0].get('geometry')).bounds)
         
         images = self.create_collection(start_year, stop_year)
         
@@ -227,7 +228,11 @@ class Animation:
         else:
             raise ValueError(f'Normalization range should be [0,1] or [-1,1]')
 
-        self.prediction = model.predict(self.images[:,:,:,:3])
+        for n in range(self.images.shape[0]):
+            if n == 0:
+                self.prediction = model.predict(self.images[:1,:,:,:3])
+            else:
+                self.prediction = np.concatenate((self.prediction, model.predict(self.images[(n-1):n,:,:,:3])), axis=0)
 
         # Denormalize output images
         if norm_range[1] == [0,1]:
@@ -236,6 +241,32 @@ class Animation:
             self.prediction = denormalize_m11(self.prediction)
 
         return self.prediction
+
+    def create_tiles(self, folder_path, region_name):
+        """
+        Predict output.
+        Parameters
+        ----------
+        folder_path: string
+            Path to the folder to save the tiles.
+        dataset_name: string
+            Name of the folder to save the tiles.
+        """
+        self.folder_path = folder_path
+        self.region_name = region_name
+        self.region_dir = os.path.join(self.folder_path, self.region_name)
+
+        # Create folder.
+        if not os.path.isdir(self.folder_path):
+            os.mkdir(self.folder_path)
+        if not os.path.isdir(self.region_dir):
+            os.mkdir(self.region_dir)
+
+        for n in range(self.prediction.shape[0]):
+            xda = from_np_to_xr(self.prediction[n,:,:,:], self.bounds)
+            xda.rio.to_raster(os.path.join(self.region_dir, f"RGB.byte.4326.{str(n)}.tif"))
+
+
 
 
 
