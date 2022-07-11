@@ -1,6 +1,6 @@
 Redes
 ==============================
-
+![](./assets/redes.png)
 [Red.es](https://www.red.es/es) is a grant from the Ministerio De Asuntos Económicos Y Transformación Digital to carry out innovation in Vizzuality’s portfolio of Digital Content products and services.
 
 Project Organization
@@ -131,15 +131,15 @@ In Figure 2 we display a time-lapse video of a growing city in Angola from 1988 
 
 To do this, we have developed the following activities:
 - **A1.1** - A software package to create training, validation and test datasets in TFRecord format:
-    - [Code](https://github.com/Vizzuality/sci_team_data_bank/blob/master/Projects/Redes/notebooks/Lab/ml_models/datasets.py)
-    - [Notebook](https://github.com/Vizzuality/sci_team_data_bank/blob/master/Projects/Redes/notebooks/Lab/01_TFRecords_from_GEE.ipynb) 
+    - [Code](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/vizzDL/datasets.py)
+    - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/01_TFRecords_from_GEE.ipynb) 
 
 - **A1.2** - Training of super-resolution convolutional neural networks.
-    - [Code](https://github.com/Vizzuality/sci_team_data_bank/tree/master/Projects/Redes/notebooks/Lab/ml_models)
-    - [Notebook](https://github.com/Vizzuality/sci_team_data_bank/blob/master/Projects/Redes/notebooks/Lab/03_train_model.ipynb)
+    - [Code](https://github.com/Vizzuality/redes-data/tree/main/notebooks/Lab/vizzDL)
+    - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/07_train_SRGAN_model.ipynb)
 
 - **A1.3** - Creation of video mosaics.
-    - [Notebook](https://github.com/Vizzuality/sci_team_data_bank/blob/master/Projects/Redes/notebooks/Lab/05_Animated-tiles.ipynb)
+    - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/05_Animated-tiles.ipynb)
 
 ###  References
 1. <a id="R1" />[Rahaman, K. R., Hassan, Q. K., & Ahmed, M. R. (2017)](https://www.mdpi.com/2220-9964/6/6/168). Pan-sharpening of Landsat-8 images and its application in calculating vegetation greenness and canopy water contents. ISPRS International Journal of Geo-Information, 6(6), 168.
