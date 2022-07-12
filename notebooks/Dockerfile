@@ -1,11 +1,13 @@
 #FROM tensorflow/tensorflow:latest-gpu-jupyter
-FROM tensorflow/tensorflow:2.4.2-gpu-jupyter
+FROM tensorflow/tensorflow:2.9.1-gpu-jupyter
 
 SHELL [ "/bin/bash", "-l", "-c" ]
 
 USER root
 ENV NVM_DIR /usr/local/nvm
 ENV CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+RUN apt-get update && apt install -y binutils libproj-dev gdal-bin --fix-missing
 
 RUN pip install --upgrade pip
 RUN pip install jupyter_contrib_nbextensions version_information jupyterlab  && \
