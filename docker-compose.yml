@@ -1,8 +1,10 @@
 version:  '3.7'
 services:
   redes-notebooks:
-      env_file: 
+      env_file:
         - .env
+      environment:
+        - NVIDIA_DISABLE_REQUIRE=1
       build:
         context: ./notebooks
         dockerfile: Dockerfile
