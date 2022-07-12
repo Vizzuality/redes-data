@@ -11,6 +11,8 @@ RUN pip install --upgrade pip
 RUN pip install jupyter_contrib_nbextensions version_information jupyterlab  && \
     jupyter contrib nbextension install --sys-prefix
 
+#RUN conda update conda
+
 # Add requirements file
 COPY jupyter_notebook_config.py /etc/jupyter/
 COPY requirements.txt /app/

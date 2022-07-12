@@ -15,6 +15,7 @@ xarray
 xarray-leaflet 
 tqdm
 ffmpeg-python
+gdal2tiles
 
 
 
