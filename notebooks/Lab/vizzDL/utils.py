@@ -1,11 +1,16 @@
+import os
 import ee
 import json
+import glob
+import ffmpeg
 import rioxarray
 import numpy as np
 import xarray as xr
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from shapely.geometry import shape
+from google.cloud import storage
+from google.oauth2 import service_account
 
 from . import ee_collection_specifics
 
@@ -175,3 +180,112 @@ def display_lr_hr_sr(model, lr, hr):
     ax[2].imshow(denormalize_m11(hr[0,:,:,:]))
     ax[2].set_title('HR')
 
+
+def from_TMS_to_XYZ(tile_dir, minZ, maxZ):
+    
+    for z in range(minZ,maxZ+1):
+        z_dir = os.path.join(tile_dir, str(z))
+        all_y = [y for y in range(2**z)]
+        x_list = os.listdir(z_dir)    
+        for x in x_list:
+            x_dir = os.path.join(z_dir, x)
+            y_list = [yy.split('.')[0] for yy in os.listdir(x_dir)] 
+            for y in y_list:
+                old_file = os.path.join(x_dir, f"{str(y)}.png")
+                new_file = os.path.join(x_dir, f"{str(all_y[-int(y)-1])}_new.png")
+                os.rename(old_file, new_file)
+            for filename in glob.iglob(os.path.join(x_dir, '*_new.png')):
+                os.rename(filename, filename[:-8] + '.png')
+
+def create_movie_from_pngs(input_files, output_file, output_format='apng', framerate=4):
+    
+    if output_format == 'apng':
+        out, _ = (
+            ffmpeg
+            .input(input_files, framerate=framerate, pix_fmt='rgba')
+            .output(output_file, **{'plays': 0})
+            .run(capture_stdout=True, overwrite_output=True)
+        )
+        # Corresponding command line code
+        #ffmpeg -framerate 3 -i ./data/movie/movie_%03d.png -plays 0 ./data/movie/movie.apng
+        
+    if output_format == 'webm':
+        out, _ = (
+            ffmpeg
+            .input(input_files, framerate=framerate, pix_fmt='yuva420p')
+            .output(output_file, **{'auto-alt-ref': 0})
+            .run(capture_stdout=True, overwrite_output=True)
+        )
+        # Corresponding command line code
+        # ffmpeg -framerate 4 -start_number 000 -i ./data/movie/movie_%03d.png -vf scale=490:512 -c:v libvpx -pix_fmt yuva420p -auto-alt-ref 0 -metadata:s:v:0 alpha_mode="1" ./data/movie/movie.webm
+       
+    if output_format == 'webm':
+        out, _ = (
+            ffmpeg
+            .input(input_files, framerate=framerate, pix_fmt='yuva420p')
+            .output(output_file, **{'auto-alt-ref': 0})
+            .run(capture_stdout=True, overwrite_output=True)
+        )
+        # Corresponding command line code
+        # ffmpeg -framerate 4 -start_number 000 -i ./data/movie/movie_%03d.png -vf scale=490:512 -c:v libvpx -pix_fmt yuva420p -auto-alt-ref 0 -metadata:s:v:0 alpha_mode="1" ./data/movie/movie.webm
+        
+    if output_format == 'webp':
+        out, _ = (
+            ffmpeg
+            .input(input_files, framerate=framerate)
+            .output(output_file, vcodec='libwebp')
+            .run(capture_stdout=True, overwrite_output=True)
+        )
+        # Corresponding command line code
+        # ffmpeg -framerate 4 -i ./data/movie/movie_%03d.png -c:v libwebp ./data/movie/movie.webp
+        
+    if output_format == 'gif':
+        out, _ = (
+            ffmpeg
+            .input(input_files, framerate=framerate)
+            .output(output_file, vcodec='gif')
+            .run(capture_stdout=True, overwrite_output=True)
+        )
+        # Corresponding command line code
+        # ffmpeg -f image2 -framerate 1 -i ./data/movie/movie_%03d.png  ./data/movie/movie.gif
+        
+    if output_format == 'mp4':
+        out, _ = (
+            ffmpeg
+            .input(input_files, framerate=framerate, pix_fmt='yuv420p')
+            .output(output_file, vcodec='libx264', crf=20)
+            .run(capture_stdout=True, overwrite_output=True)
+        )
+        # Corresponding command line code
+        # ffmpeg -framerate 4 -start_number 000 -i ./data/movie/movie_%03d.png -vf scale=490:512 -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p movie.mp4
+
+    if output_format == 'mov':
+        out, _ = (
+            ffmpeg
+            .input(input_files, framerate=framerate, pix_fmt='rgba')
+            .output(output_file, vcodec='png')
+            .run(capture_stdout=True, overwrite_output=True)
+        )
+        # Corresponding command line code
+        # ffmpeg -framerate 4 -start_number 000 -i ./data/movie/movie_%03d.png -vf scale=490:512 -vcodec png -pix_fmt rgba ./data/movie/movie.mov
+
+def upload_local_directory_to_gcs(bucket_name, local_path, destination_blob_path):
+    """Uploads a directory to the bucket."""
+    private_key = json.loads(os.getenv("EE_PRIVATE_KEY"))
+    
+    credentials = service_account.Credentials.from_service_account_info(private_key)
+    storage_client = storage.Client(project='project_id', credentials=credentials)
+    
+    bucket = storage_client.bucket(bucket_name)
+    rel_paths = glob.glob(local_path + '/**', recursive=True)
+
+    for local_file in rel_paths:
+        remote_path = f'{destination_blob_path}{"/".join(local_file.split(os.sep)[len(local_path.split(os.sep))-1:])}'
+        if os.path.isfile(local_file):
+            blob = bucket.blob(remote_path)
+            print(
+                "File {} uploaded to {}.".format(
+                    local_file, remote_path
+                )
+            )
+            blob.upload_from_filename(local_file)

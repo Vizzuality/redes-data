@@ -15,7 +15,7 @@ xarray
 xarray-leaflet 
 tqdm
 ffmpeg-python
-gdal2tiles
+gdal2tiles==0.1.9
 
 
 

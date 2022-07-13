@@ -1,17 +1,20 @@
 import os
 import io
 import json
+import shutil
 import requests
 from PIL import Image
 
 import ee
 import requests
+import gdal2tiles
 import numpy as np
 import ipyleaflet as ipyl
 from shapely.geometry import shape
 
 from . import ee_collection_specifics
-from .utils import from_np_to_xr, normalize_01, normalize_m11, denormalize_01, denormalize_m11 
+from .utils import from_np_to_xr, from_TMS_to_XYZ, create_movie_from_pngs,\
+    upload_local_directory_to_gcs, normalize_01, normalize_m11, denormalize_01, denormalize_m11 
 
 class Animation:
     """
@@ -20,6 +23,7 @@ class Animation:
     """
     def __init__(self):
         self.private_key = json.loads(os.getenv("EE_PRIVATE_KEY"))
+        self.bucket_name = os.getenv("GCSBUCKET")
         self.ee_credentials = ee.ServiceAccountCredentials(email=self.private_key['client_email'], key_data=os.getenv("EE_PRIVATE_KEY"))
         self.ee_tiles = '{tile_fetcher.url_format}'
         ee.Initialize(credentials=self.ee_credentials)
@@ -242,7 +246,7 @@ class Animation:
 
         return self.prediction
 
-    def create_tiles(self, folder_path, region_name):
+    def create_animated_tiles(self, folder_path, region_name, minZ, maxZ):
         """
         Predict output.
         Parameters
@@ -251,9 +255,15 @@ class Animation:
             Path to the folder to save the tiles.
         dataset_name: string
             Name of the folder to save the tiles.
+        minZ: int
+            Min zoom level.
+        maxZ: int
+            Max zoom level.
         """
         self.folder_path = folder_path
         self.region_name = region_name
+        self.minZ = minZ
+        self.maxZ = maxZ
         self.region_dir = os.path.join(self.folder_path, self.region_name)
 
         # Create folder.
@@ -262,9 +272,110 @@ class Animation:
         if not os.path.isdir(self.region_dir):
             os.mkdir(self.region_dir)
 
-        for n in range(self.prediction.shape[0]):
-            xda = from_np_to_xr(self.prediction[n,:,:,:], self.bounds)
-            xda.rio.to_raster(os.path.join(self.region_dir, f"RGB.byte.4326.{str(n)}.tif"))
+        animations = {self.instrument: self.images}
+        if hasattr(self, 'prediction'):
+            animations['Prediction'] = self.prediction
+
+        for name, animation in animations.items():
+            print(name)
+            # Create tiles per frame
+            print('Create tiles per frame:')
+            for n in range(animation.shape[0]):
+                print(f'  frame #{str(n)}')
+                xda = from_np_to_xr(animation[n,:,:,:3], self.bounds)
+
+                # Create GeoTIFF
+                tif_file = os.path.join(self.region_dir, f"RGB.byte.4326.{str(n)}.tif")
+                xda.rio.to_raster(tif_file)
+
+                # Create Tiles
+                tile_dir = os.path.join(self.region_dir, str(n))
+
+                options = {'zoom': f'{str(minZ)}-{str(maxZ)}',
+                'nb_processes': 48,
+                'tile_size': 256,
+                'srs':'EPSG:4326'}
+
+                gdal2tiles.generate_tiles(tif_file, tile_dir, **options)
+
+                from_TMS_to_XYZ(tile_dir, minZ, maxZ)
+
+                os.remove(tif_file)
+
+                # Merge different frame tiles    
+                if n == 0:
+                    # Create folder.
+                    if not os.path.isdir(os.path.join(self.region_dir, 'APNGs')):
+                        os.mkdir(os.path.join(self.region_dir, 'APNGs'))
+                    if not os.path.isdir(os.path.join(self.region_dir, 'APNGs', name)):
+                        os.mkdir(os.path.join(self.region_dir, 'APNGs', name))
+                    else:
+                        shutil.rmtree(os.path.join(self.region_dir, 'APNGs', name))
+                        os.mkdir(os.path.join(self.region_dir, 'APNGs', name))
+
+                z_dirs = [d for d in os.listdir(tile_dir) if os.path.isdir(os.path.join(tile_dir, d))]
+                for z_dir in z_dirs:
+                    if n == 0: os.mkdir(os.path.join(self.region_dir, 'APNGs', name, z_dir))
+                    for x_dir in os.listdir(os.path.join(tile_dir, z_dir)):
+                        if n == 0: os.mkdir(os.path.join(self.region_dir, 'APNGs', name, z_dir, x_dir))
+
+                        source_dir = os.path.join(tile_dir, z_dir, x_dir)
+                        target_dir = os.path.join(self.region_dir, 'APNGs', name, z_dir, x_dir)
+                            
+                        file_names = os.listdir(source_dir)
+                            
+                        for file_name in file_names:
+                            shutil.move(os.path.join(source_dir, file_name), target_dir)
+                            number = '{:03d}'.format(n)
+                            os.rename(os.path.join(target_dir, file_name), os.path.join(target_dir, file_name[:-4] + f'_{number}.png'))
+
+                shutil.rmtree(tile_dir)
+
+            # Create APNGs
+            print('Creating APNGs')
+            tile_dir = os.path.join(self.region_dir, 'APNGs', name)
+            for z_dir in os.listdir(tile_dir):
+                for x_dir in os.listdir(os.path.join(tile_dir, z_dir)):
+                    file_names = os.listdir(os.path.join(tile_dir, z_dir, x_dir))
+
+                    tiles = list(map(lambda x: x.split('_')[0], file_names))
+                    tiles = list(set(tiles))
+                    for tile in tiles:
+                        png_files = list(filter(lambda x: x.split('_')[0] == tile, file_names))
+                        #png_files = sorted(png_files, key=lambda x: float(x.split('.')[0]))
+                        png_files = [os.path.join(tile_dir, z_dir, x_dir, i) for i in png_files]
+
+                        create_movie_from_pngs(png_files[0].split('_')[-2]+'_'+'%03d.png', png_files[0].split('_')[-2]+'.png', 'apng')
+
+                        # Remove PNGs
+                        [os.remove(file) for file in png_files]
+
+            # Upload `APNG` files to GCS
+            print('Uploading APNG files to GCS')
+            upload_local_directory_to_gcs(self.bucket_name, tile_dir, f'Redes/Tiles/{self.region_name}/APNGs/')
+
+            # Display tiles on map
+            if name == self.instrument:
+                self.map = ipyl.Map(
+                    basemap=ipyl.basemap_to_tiles(ipyl.basemaps.OpenStreetMap.Mapnik),
+                    center=(self.lat, self.lon),
+                    zoom=self.zoom
+                    )
+
+            self.map.add_layer(ipyl.TileLayer(url=f'https://storage.googleapis.com/geo-ai/Redes/Tiles/{self.region_name}/APNGs/{name}'+'/{z}/{x}/{y}.png', name=name))
+
+        control = ipyl.LayersControl(position='topright')
+        self.map.add_control(control)
+        self.map.add_control(ipyl.FullScreenControl())
+        
+        return self.map
+
+
+
+
+
+
+
 
 
 

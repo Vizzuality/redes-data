@@ -8,6 +8,7 @@ ENV NVM_DIR /usr/local/nvm
 ENV CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 RUN apt-get update && apt install -y binutils libproj-dev gdal-bin --fix-missing
+RUN apt-get install -y ffmpeg
 
 RUN pip install --upgrade pip
 RUN pip install jupyter_contrib_nbextensions version_information jupyterlab  && \
