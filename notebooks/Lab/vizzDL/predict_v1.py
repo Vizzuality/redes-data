@@ -1,6 +1,7 @@
 import os
-import io
+import io 
 import json
+from unicodedata import name
 import requests
 from PIL import Image
 
@@ -11,11 +12,12 @@ import xarray_leaflet
 import ipyleaflet as ipyl
 from shapely.geometry import shape
 
-from .utils import from_np_to_xr, normalize_01, normalize_m11, denormalize_01, denormalize_m11 
+from .train_v1 import Trainer
 from . import ee_collection_specifics
-from .models.CNN.super_resolution import srgan
+from .utils import from_np_to_xr
 
-class Predictor:
+
+class Predictor(object):
     """
     Predictions with Deep Learning models.
     ----------
@@ -25,24 +27,24 @@ class Predictor:
         Name of the folder with the parameters created during TFRecords' creation.
     model_name: string
         Name of the model
-    models: Model
-        List of Keras models
     """
-    def __init__(self, folder_path, dataset_name, models):
-        self.folder_path = folder_path
-        self.dataset_name = dataset_name
-        self.models = models
-        with open(os.path.join(folder_path, dataset_name, "dataset_params.json"), 'r') as f:
+    def __init__(self, folder_path, dataset_name, model_name):
+        with open(os.path.join(folder_path, dataset_name, model_name, "training_params.json"), 'r') as f:
             self.params = json.load(f)
 
         self.private_key = json.loads(os.getenv("EE_PRIVATE_KEY"))
         self.ee_credentials = ee.ServiceAccountCredentials(email=self.private_key['client_email'], key_data=os.getenv("EE_PRIVATE_KEY"))
+        self.slugs_list = ["Sentinel-2-Top-of-Atmosphere-Reflectance",
+              "Landsat-7-Surface-Reflectance",
+              "Landsat-8-Surface-Reflectance",
+              "USDA-NASS-Cropland-Data-Layers",
+              "USGS-National-Land-Cover-Database"]
         self.ee_tiles = '{tile_fetcher.url_format}'
         ee.Initialize(credentials=self.ee_credentials)
 
-    def select_region(self, lat=39.31, lon=0.302, zoom=6):
+    def select_region(self, slugs=["Sentinel-2-Top-of-Atmosphere-Reflectance"], init_date='2019-01-01', end_date='2019-12-31', lat=39.31, lon=0.302, zoom=6):
         """
-        Returns a leaflet map with the composites and allow area selection.
+        Returns a folium map with the composites and allow area selection.
         Parameters
         ----------
         lat: float
@@ -67,7 +69,7 @@ class Predictor:
 
         composites = []
         for n, slug in enumerate(self.slugs):
-            composites.append(ee_collection_specifics.Composite(slug)(self.init_date, self.end_date))
+            composites.append(ee_collection_specifics.Composite(slug)(init_date, end_date))
 
             mapid = composites[n].getMapId(ee_collection_specifics.vizz_params_rgb(slug))
             tiles_url = self.ee_tiles.format(**mapid)
@@ -120,48 +122,35 @@ class Predictor:
         self.geo = self.feature['features'][0]['geometry']
         self.polygon = shape(self.geo)
 
-        self.bounds = list(self.polygon.bounds)
+        self.region = list(self.polygon.bounds)
 
         visSave = ee_collection_specifics.vizz_params_rgb(self.slugs[0])
         scale = ee_collection_specifics.ee_scale(self.slugs[0])
-        url = self.composites[0].getThumbURL({**visSave,**{'scale': scale}, **{'region':self.bounds}})
+        url = self.composites[0].getThumbURL({**visSave,**{'scale': scale}, **{'region':self.region}})
 
         response = requests.get(url)
         self.image = np.array(Image.open(io.BytesIO(response.content))) 
         self.image = self.image.reshape((1,) + self.image.shape) 
 
         # Display input image on map
-        xda = from_np_to_xr(self.image[0,:,:,:], self.bounds, layer_name = 'Input image')
+        xda = from_np_to_xr(self.image[0,:,:,:], self.region, layer_name = 'Input image')
         l = xda.leaflet.plot(self.map, rgb_dim='band', persist=True)
 
-    def predict(self, norm_range=[[0,1], [-1,1]]):
+    def predict(self):
         """
         Predict output.
         Parameters
         ----------
-        norm_range: list
-            List with two values showing the normalization range.
         """
-        # Normalize input image
-        if norm_range[0] == [0,1]:
-            self.image = normalize_01(self.image)
-        elif norm_range[0] == [-1,1]:
-            self.image = normalize_m11(self.image)
-        else:
-            raise ValueError(f'Normalization range should be [0,1] or [-1,1]')
+        Train = Trainer(folder_path = self.params['folder_path'], dataset_name = self.params['dataset_name'])
+        Train.create_model(model_type=self.params['model_type'], model_output=self.params['model_output'], model_architecture=self.params['model_architecture'], scaling_factor=self.params['scaling_factor'])
 
-        self.predictions = []
-        for n, model in enumerate(self.models): 
-            prediction = model.predict(self.image[:,:,:,:3])
+        model_dir = os.path.join(self.params['folder_path'], self.params['dataset_name'], self.params['model_name'], 'model_weights.h5') 
+        model = Train.keras_model
+        model.load_weights(model_dir)
 
-            # Display predicted image on map
-            # Denormalize output image
-            if norm_range[1] == [0,1]:
-                prediction = denormalize_01(prediction)
-            elif norm_range[1] == [-1,1]:
-                prediction = denormalize_m11(prediction)
+        self.prediction = model.predict(self.image/255.)
 
-            self.predictions.append(prediction)
-
-            xda = from_np_to_xr(prediction[0,:,:,:], self.bounds, layer_name = f'Prediction {str(n)}')
-            l = xda.leaflet.plot(self.map, rgb_dim='band', persist=True)
+        # Display predicted image on map
+        xda = from_np_to_xr((self.prediction[0,:,:,:]*255.0).astype(int), self.region, layer_name = 'Prediction')
+        l = xda.leaflet.plot(self.map, rgb_dim='band', persist=True)

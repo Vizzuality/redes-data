@@ -9,6 +9,7 @@ import ee
 import requests
 import gdal2tiles
 import numpy as np
+from apng import APNG
 import ipyleaflet as ipyl
 from shapely.geometry import shape
 
@@ -238,7 +239,11 @@ class Animation:
             else:
                 self.prediction = np.concatenate((self.prediction, model.predict(self.images[(n-1):n,:,:,:3])), axis=0)
 
-        # Denormalize output images
+        # Denormalize input/output images
+        if norm_range[0] == [0,1]:
+            self.images = denormalize_01(self.images)
+        elif norm_range[0] == [-1,1]:
+            self.images = denormalize_m11(self.images)
         if norm_range[1] == [0,1]:
             self.prediction = denormalize_01(self.prediction)
         elif norm_range[1] == [-1,1]:
@@ -342,10 +347,11 @@ class Animation:
                     tiles = list(set(tiles))
                     for tile in tiles:
                         png_files = list(filter(lambda x: x.split('_')[0] == tile, file_names))
-                        #png_files = sorted(png_files, key=lambda x: float(x.split('.')[0]))
+                        png_files = sorted(png_files, key=lambda x: float(x.split('.')[0]))
                         png_files = [os.path.join(tile_dir, z_dir, x_dir, i) for i in png_files]
 
-                        create_movie_from_pngs(png_files[0].split('_')[-2]+'_'+'%03d.png', png_files[0].split('_')[-2]+'.png', 'apng')
+                        APNG.from_files(png_files, delay=1).save(png_files[0].split('_')[-2]+'.png')
+                        #create_movie_from_pngs(png_files[0].split('_')[-2]+'_'+'%03d.png', png_files[0].split('_')[-2]+'.png', 'apng')
 
                         # Remove PNGs
                         [os.remove(file) for file in png_files]
