@@ -206,11 +206,15 @@ class Animation:
             #Add alpha channel if needed
             if alpha_channel and array.shape[3] == 3:
                 array = np.append(array, np.full((array.shape[0],array.shape[1], array.shape[2],1), 255), axis=3)
-            
-            if n == 0:
-                arrays = array
+                if n == 0:
+                    arrays = array[:,:,:,:4]
+                else:
+                    arrays = np.append(arrays, array[:,:,:,:4], axis=0)
             else:
-                arrays = np.append(arrays, array, axis=0)
+                if n == 0:
+                    arrays = array[:,:,:,:3]
+                else:
+                    arrays = np.append(arrays, array[:,:,:,:3], axis=0)
         
         self.images = arrays
         return self.images

@@ -1,5 +1,5 @@
-#FROM tensorflow/tensorflow:latest-gpu-jupyter
-FROM tensorflow/tensorflow:2.9.1-gpu-jupyter
+FROM tensorflow/tensorflow:latest-gpu-jupyter
+#FROM tensorflow/tensorflow:2.9.1-gpu-jupyter
 
 SHELL [ "/bin/bash", "-l", "-c" ]
 

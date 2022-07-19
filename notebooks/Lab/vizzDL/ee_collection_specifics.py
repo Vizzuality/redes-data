@@ -19,7 +19,9 @@ def ee_collections(collection):
         'Landsat-8-Surface-Reflectance': 'LANDSAT/LC08/C01/T1_SR',
         'Landsat-457-Surface-Reflectance': ['LANDSAT/LT04/C01/T1_SR','LANDSAT/LT05/C01/T1_SR', 'LANDSAT/LE07/C01/T1_SR'],
         'USDA-NASS-Cropland-Data-Layers': 'USDA/NASS/CDL',
-        'USGS-National-Land-Cover-Database': 'USGS/NLCD'
+        'USGS-National-Land-Cover-Database': 'USGS/NLCD',
+        'USGS-National-Elevation': 'USGS/NLCD',
+        'SRTM-Digital-Elevation': 'USGS/SRTMGL1_003'
     }
     
     return dic[collection]
@@ -37,7 +39,9 @@ def ee_bands(collection):
         'Landsat-457-Surface-Reflectance': ['B1','B2','B3','B4','B5','B6','B7','NDVI','NDWI'],
         'Landsat-8-Surface-Reflectance': ['B1','B2','B3','B4','B5','B6','B7','B10','B11','NDVI','NDWI'],
         'USDA-NASS-Cropland-Data-Layers': ['landcover', 'cropland', 'land', 'water', 'urban'],
-        'USGS-National-Land-Cover-Database': ['impervious']
+        'USGS-National-Land-Cover-Database': ['impervious'],
+        'USGS-National-Elevation': ['elevation'],
+        'SRTM-Digital-Elevation': ['elevation']
     }
     
     return dic[collection]
@@ -55,7 +59,9 @@ def ee_bands_rgb(collection):
         'Landsat-457-Surface-Reflectance': ['B3','B2','B1'],
         'Landsat-8-Surface-Reflectance': ['B4', 'B3', 'B2'],
         'USDA-NASS-Cropland-Data-Layers': ['landcover'],
-        'USGS-National-Land-Cover-Database': ['impervious']
+        'USGS-National-Land-Cover-Database': ['impervious'],
+        'USGS-National-Elevation': ['elevation'],
+        'SRTM-Digital-Elevation': ['elevation']
     }
     
     return dic[collection]
@@ -73,6 +79,8 @@ def ee_bands_names(collection):
         'Landsat-8-Surface-Reflectance': ['RGB','NDVI', 'NDWI'],
         'USDA-NASS-Cropland-Data-Layers': ['landcover', 'cropland', 'land', 'water', 'urban'],
         'USGS-National-Land-Cover-Database': ['impervious'],
+        'USGS-National-Elevation': ['elevation'],
+        'SRTM-Digital-Elevation': ['elevation']
     }
     
     return dic[collection]
@@ -90,6 +98,8 @@ def ee_scale(collection):
         'Landsat-8-Surface-Reflectance': 30,
         'USDA-NASS-Cropland-Data-Layers': 30,
         'USGS-National-Land-Cover-Database': 30,
+        'USGS-National-Elevation': 10,
+        'SRTM-Digital-Elevation': 30
     }
     
     return dic[collection]
@@ -107,6 +117,8 @@ def vizz_params_rgb(collection):
         'Landsat-8-Surface-Reflectance': {'min':0,'max':3000, 'gamma':1.4, 'bands':['B4','B3','B2']},
         'USDA-NASS-Cropland-Data-Layers': {'min':0,'max':3, 'bands':['landcover']},
         'USGS-National-Land-Cover-Database': {'min': 0, 'max': 1, 'bands':['impervious']},
+        'USGS-National-Elevation': {'min': 0, 'max': 8000, 'bands':['elevation']},
+        'SRTM-Digital-Elevation': {'min': 0, 'max': 8000, 'bands':['elevation']}
     }
     
     return dic[collection]
@@ -140,6 +152,8 @@ def vizz_params(collection):
             {'min':0,'max':1, 'bands':['water']},
             {'min':0,'max':1, 'bands':['urban']}],
         'USGS-National-Land-Cover-Database': [{'min': 0, 'max': 1, 'bands':['impervious']}],
+        'USGS-National-Elevation': [{'min': 0, 'max': 8000, 'bands':['elevation']}],
+        'SRTM-Digital-Elevation': [{'min': 0, 'max': 8000, 'bands':['elevation']}]
     }
     
     return dic[collection]
@@ -416,6 +430,20 @@ def ImperviousData(startDate, stopDate):
     
     return image
 
+## USGS National Elevation Dataset
+def USGSElevation(startDate, stopDate):
+    image = ee.Image('USGS/SRTMGL1_003')
+    image = image.select('elevation')
+    
+    return image
+
+## SRTM Digital Elevation Data
+def SRTMElevation(startDate, stopDate):
+    image = ee.Image('USGS/NED')
+    image = image.select('elevation')
+    
+    return image
+
 ## ------------------------------------------------------------------- ##
 
 def Composite(collection):
@@ -427,7 +455,9 @@ def Composite(collection):
         'Landsat-457-Surface-Reflectance': CloudFreeCompositeL457,
         'Landsat-8-Surface-Reflectance': CloudFreeCompositeL8,
         'USDA-NASS-Cropland-Data-Layers': CroplandData,
-        'USGS-National-Land-Cover-Database': ImperviousData
+        'USGS-National-Land-Cover-Database': ImperviousData,
+        'USGS-National-Elevation': USGSElevation,
+        'SRTM-Digital-Elevation': SRTMElevation
     }
     
     return dic[collection]
