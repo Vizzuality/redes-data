@@ -229,9 +229,9 @@ class Composite:
         Parameters
         ----------
         folder_path: string
-            Path to the folder to save the tiles.
-        dataset_name: string
-            Name of the folder to save the tiles.
+            Path to the folder to save the figures.
+        region_name: string
+            Name of the folder to save the figures.
         dimensions : int
             A number or pair of numbers in format WIDTHxHEIGHT Maximum dimensions of the thumbnail to render, in pixels. If only one number is passed, it is used as the maximum, and the other dimension is computed by proportional scaling.
         """
@@ -250,11 +250,11 @@ class Composite:
 
         # Save image as PNG
         if len(self.band) == 1:
-            jpg_file = os.path.join(self.region_dir, f"{self.band[0]}.3857.png")
+            png_file = os.path.join(self.region_dir, f"{self.band[0]}.3857.png")
         else:
-            jpg_file = os.path.join(self.region_dir, f"RGB.byte.3857.png")
+            png_file = os.path.join(self.region_dir, f"RGB.byte.3857.png")
 
-        urllib.request.urlretrieve(self.url, jpg_file)
+        urllib.request.urlretrieve(self.url, png_file)
 
 
 

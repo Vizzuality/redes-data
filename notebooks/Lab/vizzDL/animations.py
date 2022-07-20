@@ -2,6 +2,7 @@ import os
 import io
 import json
 import shutil
+import urllib
 import requests
 from PIL import Image
 
@@ -145,24 +146,79 @@ class Animation:
             if not in_range:
                 raise ValueError(f'Year out of range.')
                 
-            slug = slugs[n]
+            self.slug = slugs[n]
             
-            self.scale = ee_collection_specifics.ee_scale(slug)
+            self.scale = ee_collection_specifics.ee_scale(self.slug)
       
             # Image Visualization parameters
-            vis = ee_collection_specifics.vizz_params_rgb(slug)
+            self.vis = ee_collection_specifics.vizz_params_rgb(self.slug)
             
-            step_range = ee_collection_specifics.step_range(slug)
+            step_range = ee_collection_specifics.step_range(self.slug)
             
             startDate = ee.Date(str(year+step_range[0])+'-12-31')
             stopDate  = ee.Date(str(year+step_range[1])+'-12-31')
         
-            image = ee_collection_specifics.Composite(slug)(startDate, stopDate)
+            image = ee_collection_specifics.Composite(self.slug)(startDate, stopDate)
     
             # convert image to an RGB visualization
-            images.append(image.visualize(**vis).copyProperties(image, image.propertyNames()))
+            images.append(image.visualize(**self.vis).copyProperties(image, image.propertyNames()))
             
         return images
+
+    def save_frames_as_PGNs(self, folder_path, region_name, start_year, stop_year, dimensions=None):
+        """
+        Save frames as PGNs.
+        ----------
+        folder_path: string
+            Path to the folder to save the figures.
+        region_name: string
+            Name of the folder to save the figures.
+        start_year : int
+            First year
+        stop_year : int
+            Last year
+        dimensions : int
+            A number or pair of numbers in format WIDTHxHEIGHT Maximum dimensions of the thumbnail to render, in pixels. If only one number is passed, it is used as the maximum, and the other dimension is computed by proportional scaling.
+        alpha_channel : Boolean
+            If True adds transparency
+        """ 
+        self.folder_path = folder_path
+        self.region_name = region_name
+        self.region_dir = os.path.join(self.folder_path, self.region_name)
+
+        # Create folder.
+        if not os.path.isdir(self.folder_path):
+            os.mkdir(self.folder_path)
+        if not os.path.isdir(self.region_dir):
+            os.mkdir(self.region_dir)
+
+        if self.geometry['features'] == []:
+            raise ValueError(f'A rectangle has not been drawn on the map.')
+
+        # Area of Interest
+        self.region = self.geometry.get('features')[0].get('geometry').get('coordinates')
+        self.polygon = ee.Geometry.Polygon(self.region)
+        self.bounds = list(shape(self.geometry.get('features')[0].get('geometry')).bounds)
+        
+        images = self.create_collection(start_year, stop_year)
+        
+        years = np.arange(start_year, stop_year+1)
+        for n, image in enumerate(images):
+            print(f'Image number: {str(n)}')
+            image = ee.Image(image)
+
+            if dimensions:
+                image =  image.reproject(crs='EPSG:4326', scale=self.scale)
+                visSave = {'dimensions': dimensions, 'format': 'png', 'crs': 'EPSG:3857', 'region':self.region} 
+            else:
+                visSave = {'scale': self.scale,'region':self.region, 'crs': 'EPSG:3857'} 
+    
+            url = image.getThumbURL(visSave)
+
+            png_file = os.path.join(self.region_dir, f"RGB.byte.3857.{str(years[n])}.png")
+
+            urllib.request.urlretrieve(url, png_file)
+
 
     def video_as_array(self, start_year, stop_year, dimensions=None, alpha_channel=False):
         """
