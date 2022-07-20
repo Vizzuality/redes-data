@@ -212,8 +212,7 @@ class Composite:
         if not os.path.isdir(self.region_dir):
             os.mkdir(self.region_dir)
 
-        bbox_3857 = bbox_to_webmercator(self.bounds)
-        xda = from_np_to_xr(self.array, bbox_3857)
+        xda = from_np_to_xr(self.array, self.bounds, projection="EPSG:3857")
 
         # Create GeoTIFF
         if len(self.band) == 1:

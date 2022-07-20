@@ -117,7 +117,7 @@ def list_record_features(glob):
     return features
 
 
-def from_np_to_xr(array, bbox, layer_name = ''):
+def from_np_to_xr(array, bbox, layer_name = '', projection="EPSG:4326"):
     """
     Transform from numpy array to geo-referenced xarray DataArray.
     Parameters
@@ -127,6 +127,9 @@ def from_np_to_xr(array, bbox, layer_name = ''):
     bbox: list
         Bounding box [min_x, min_y, max_x, max_y].
     """
+    if projection=="EPSG:3857":
+        bbox = bbox_to_webmercator(bbox)
+
     lon_coor = np.linspace(bbox[0],  bbox[2], array.shape[1])
     lat_coor = np.linspace(bbox[3],  bbox[1], array.shape[0])
 
@@ -134,7 +137,10 @@ def from_np_to_xr(array, bbox, layer_name = ''):
         xda = xr.DataArray(array, dims=("y", "x"), coords={"x": lon_coor, "y":lat_coor})
         xda = xda.assign_coords({"band": 0})
 
-        xda.rio.write_crs(3857, inplace=True)
+        if projection=="EPSG:3857":
+            xda.rio.write_crs(3857, inplace=True)
+        else:
+            xda.rio.write_crs(4326, inplace=True)
         xda = xda.rio.write_nodata(0)
         xda = xda.astype('float32')
         xda.name = layer_name
@@ -147,8 +153,10 @@ def from_np_to_xr(array, bbox, layer_name = ''):
             else:
                 xda_tmp = xda_tmp.assign_coords({"band": i})
                 xda = xr.concat([xda, xda_tmp], dim='band')
-            
-        xda.rio.write_crs(3857, inplace=True)
+        if projection=="EPSG:3857":
+            xda.rio.write_crs(3857, inplace=True)
+        else:
+            xda.rio.write_crs(4326, inplace=True)
         xda = xda.rio.write_nodata(0)
         xda = xda.astype('uint8')
         xda.name = layer_name
