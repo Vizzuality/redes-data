@@ -117,8 +117,8 @@ def vizz_params_rgb(collection):
         'Landsat-8-Surface-Reflectance': {'min':0,'max':3000, 'gamma':1.4, 'bands':['B4','B3','B2']},
         'USDA-NASS-Cropland-Data-Layers': {'min':0,'max':3, 'bands':['landcover']},
         'USGS-National-Land-Cover-Database': {'min': 0, 'max': 1, 'bands':['impervious']},
-        'USGS-National-Elevation': {'min': 0, 'max': 8000, 'bands':['elevation']},
-        'SRTM-Digital-Elevation': {'min': 0, 'max': 8000, 'bands':['elevation']}
+        'USGS-National-Elevation': {'min': 0, 'max': 4000, 'bands':['elevation']},
+        'SRTM-Digital-Elevation': {'min': 0, 'max': 4000, 'bands':['elevation']}
     }
     
     return dic[collection]
@@ -432,14 +432,14 @@ def ImperviousData(startDate, stopDate):
 
 ## USGS National Elevation Dataset
 def USGSElevation(startDate, stopDate):
-    image = ee.Image('USGS/SRTMGL1_003')
+    image = ee.Image('USGS/NED')
     image = image.select('elevation')
     
     return image
 
 ## SRTM Digital Elevation Data
 def SRTMElevation(startDate, stopDate):
-    image = ee.Image('USGS/NED')
+    image = ee.Image('USGS/SRTMGL1_003')
     image = image.select('elevation')
     
     return image

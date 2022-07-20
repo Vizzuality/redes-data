@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from shapely.geometry import shape
 from google.cloud import storage
 from google.oauth2 import service_account
+from pyproj import Transformer
 
 from . import ee_collection_specifics
 
@@ -129,18 +130,28 @@ def from_np_to_xr(array, bbox, layer_name = ''):
     lon_coor = np.linspace(bbox[0],  bbox[2], array.shape[1])
     lat_coor = np.linspace(bbox[3],  bbox[1], array.shape[0])
 
-    for i in range(array.shape[2]):
-        xda_tmp = xr.DataArray(array[:,:,i], dims=("y", "x"), coords={"x": lon_coor, "y":lat_coor})
-        if i == 0:
-            xda = xda_tmp.assign_coords({"band": i})
-        else:
-            xda_tmp = xda_tmp.assign_coords({"band": i})
-            xda = xr.concat([xda, xda_tmp], dim='band')
+    if len(array.shape) == 2:
+        xda = xr.DataArray(array, dims=("y", "x"), coords={"x": lon_coor, "y":lat_coor})
+        xda = xda.assign_coords({"band": 0})
+
+        xda.rio.write_crs(3857, inplace=True)
+        xda = xda.rio.write_nodata(0)
+        xda = xda.astype('float32')
+        xda.name = layer_name
+
+    else:
+        for i in range(array.shape[2]):
+            xda_tmp = xr.DataArray(array[:,:,i], dims=("y", "x"), coords={"x": lon_coor, "y":lat_coor})
+            if i == 0:
+                xda = xda_tmp.assign_coords({"band": i})
+            else:
+                xda_tmp = xda_tmp.assign_coords({"band": i})
+                xda = xr.concat([xda, xda_tmp], dim='band')
             
-    xda.rio.write_crs(4326, inplace=True)
-    xda = xda.rio.write_nodata(0)
-    xda = xda.astype('uint8')
-    xda.name = layer_name
+        xda.rio.write_crs(3857, inplace=True)
+        xda = xda.rio.write_nodata(0)
+        xda = xda.astype('uint8')
+        xda.name = layer_name
 
     return xda
 
@@ -289,3 +300,11 @@ def upload_local_directory_to_gcs(bucket_name, local_path, destination_blob_path
                 )
             )
             blob.upload_from_filename(local_file)
+
+def bbox_to_webmercator(bbox):
+    lonlat_to_webmercator = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+    
+    x_0, y_0 = lonlat_to_webmercator.transform(bbox[0], bbox[1])
+    x_1, y_1 = lonlat_to_webmercator.transform(bbox[2], bbox[3])
+    
+    return [x_0, y_0, x_1, y_1]
