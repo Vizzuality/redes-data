@@ -213,11 +213,11 @@ class Animation:
             else:
                 visSave = {'scale': self.scale,'region':self.region, 'crs': 'EPSG:3857'} 
     
-            url = image.getThumbURL(visSave)
+            self.url = image.getThumbURL(visSave)
 
             png_file = os.path.join(self.region_dir, f"RGB.byte.3857.{str(years[n])}.png")
 
-            urllib.request.urlretrieve(url, png_file)
+            urllib.request.urlretrieve(self.url, png_file)
 
 
     def video_as_array(self, start_year, stop_year, dimensions=None, alpha_channel=False):
@@ -233,6 +233,9 @@ class Animation:
         alpha_channel : Boolean
             If True adds transparency
         """ 
+        self.start_year = start_year
+        self.stop_year = stop_year
+
         if self.geometry['features'] == []:
             raise ValueError(f'A rectangle has not been drawn on the map.')
 
@@ -251,7 +254,7 @@ class Animation:
                 image =  image.reproject(crs='EPSG:4326', scale=self.scale)
                 visSave = {'dimensions': dimensions, 'format': 'png', 'crs': 'EPSG:3857', 'region':self.region} 
             else:
-                visSave = {'scale': self.scale,'region':self.region} 
+                visSave = {'scale': self.scale,'region':self.region, 'crs': 'EPSG:3857'} 
     
             url = image.getThumbURL(visSave)
             response = requests.get(url)
@@ -311,7 +314,7 @@ class Animation:
 
         return self.prediction
 
-    def create_animated_tiles(self, folder_path, region_name, minZ, maxZ):
+    def create_animated_tiles(self, folder_path, region_name, minZ, maxZ, save_GeoTIFF=False):
         """
         Predict output.
         Parameters
@@ -324,6 +327,8 @@ class Animation:
             Min zoom level.
         maxZ: int
             Max zoom level.
+        save_GeoTIFF: Boolean
+            Save GeoTIFFs.
         """
         self.folder_path = folder_path
         self.region_name = region_name
@@ -345,12 +350,13 @@ class Animation:
             print(name)
             # Create tiles per frame
             print('Create tiles per frame:')
+            years = np.arange(self.start_year, self.stop_year+1)
             for n in range(animation.shape[0]):
-                print(f'  frame #{str(n)}')
-                xda = from_np_to_xr(animation[n,:,:,:3], self.bounds)
+                print(f'  year #{str(years[n])}')
+                xda = from_np_to_xr(animation[n,:,:,:3], self.bounds, projection="EPSG:3857")
 
                 # Create GeoTIFF
-                tif_file = os.path.join(self.region_dir, f"RGB.byte.4326.{str(n)}.tif")
+                tif_file = os.path.join(self.region_dir, f"RGB.byte.3857.{str(years[n])}.tif")
                 xda.rio.to_raster(tif_file)
 
                 # Create Tiles
@@ -359,13 +365,15 @@ class Animation:
                 options = {'zoom': f'{str(minZ)}-{str(maxZ)}',
                 'nb_processes': 48,
                 'tile_size': 256,
-                'srs':'EPSG:4326'}
+                'srs':'EPSG:3857'}
 
                 gdal2tiles.generate_tiles(tif_file, tile_dir, **options)
 
                 from_TMS_to_XYZ(tile_dir, minZ, maxZ)
 
-                os.remove(tif_file)
+                # Remove GeoTIFF
+                if not save_GeoTIFF:
+                    os.remove(tif_file)
 
                 # Merge different frame tiles    
                 if n == 0:
@@ -410,7 +418,7 @@ class Animation:
                         png_files = sorted(png_files, key=lambda x: float(x.split('.')[0]))
                         png_files = [os.path.join(tile_dir, z_dir, x_dir, i) for i in png_files]
 
-                        APNG.from_files(png_files, delay=1).save(png_files[0].split('_')[-2]+'.png')
+                        APNG.from_files(png_files, delay=1).save(png_files[0][:-8]+'.png')
                         #create_movie_from_pngs(png_files[0].split('_')[-2]+'_'+'%03d.png', png_files[0].split('_')[-2]+'.png', 'apng')
 
                         # Remove PNGs
