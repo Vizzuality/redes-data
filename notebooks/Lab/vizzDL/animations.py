@@ -1,12 +1,14 @@
 import os
 import io
 import json
+import math
 import shutil
 import urllib
 import requests
 from PIL import Image
 
 import ee
+import ffmpeg
 import requests
 import gdal2tiles
 import numpy as np
@@ -321,7 +323,7 @@ class Animation:
         ----------
         folder_path: string
             Path to the folder to save the tiles.
-        dataset_name: string
+        region_name: string
             Name of the folder to save the tiles.
         minZ: int
             Min zoom level.
@@ -443,6 +445,98 @@ class Animation:
         self.map.add_control(ipyl.FullScreenControl())
         
         return self.map
+
+    def create_movie_from_array(self, folder_path, region_name, output_format='mp4', framerate=None):
+        """
+        Predict output.
+        Parameters
+        ----------
+        folder_path: string
+            Path to the folder to save the tiles.
+        region_name: string
+            Name of the folder to save the tiles.
+        output_format: string
+            Video format (mp4, mov or webm).
+        framerate: int
+            Number of frames per second.
+        """
+        self.folder_path = folder_path
+        self.region_name = region_name
+        self.output_format = output_format
+        self.framerate = framerate
+        self.region_dir = os.path.join(folder_path, region_name)
+
+        # Create folder.
+        if not os.path.isdir(self.folder_path):
+            os.mkdir(self.folder_path)
+        if not os.path.isdir(self.region_dir):
+            os.mkdir(self.region_dir)
+
+        animations = {self.instrument: self.images}
+        if hasattr(self, 'prediction'):
+            animations['Prediction'] = self.prediction
+
+        for name, animation in animations.items():
+            self.output_file = os.path.join(self.region_dir, region_name+'_'+name+'.'+output_format)
+
+            if not isinstance(animation, np.ndarray):
+                animation = np.asarray(animation)
+                
+            n,height,width,channels = animation.shape
+            
+            # Height and width should be divisible by 2
+            if height % 2 == 1: height = math.floor(height / 2.) * 2
+            if width % 2 == 1: width = math.floor(width / 2.) * 2
+                
+            animation = animation[:,:height,:width,:]
+            
+            if self.framerate == None:
+                self.framerate = n
+                
+            if self.output_format == 'mp4':
+                process = (
+                    ffmpeg
+                        .input('pipe:', format='rawvideo', pix_fmt='rgb24', s='{}x{}'.format(width, height))
+                        .output(self.output_file, pix_fmt='yuv420p', vcodec='libx264', r=self.framerate)
+                        .overwrite_output()
+                        .run_async(pipe_stdin=True, overwrite_output=True)
+                )
+                
+            if self.output_format == 'mov':
+                process = (
+                    ffmpeg
+                        .input('pipe:', format='rawvideo', pix_fmt='rgba', s='{}x{}'.format(width, height))
+                        .output(self.output_file, vcodec='png', r=self.framerate)
+                        .overwrite_output()
+                        .run_async(pipe_stdin=True, overwrite_output=True)
+                )
+                
+            if self.output_format == 'webm':   
+                process = (
+                    ffmpeg
+                        .input('pipe:', format='rawvideo', pix_fmt='rgba', s='{}x{}'.format(width, height))
+                        .output(self.output_file, **{'auto-alt-ref': 0, 'qmin': 0, 'qmax': 50, 'crf': 5, 'b:v': '1M'}, r=self.framerate)
+                        .overwrite_output()
+                        .run_async(pipe_stdin=True, overwrite_output=True)
+                )
+
+            if self.output_format == 'apng':
+                process = (
+                    ffmpeg
+                        .input('pipe:', format='rawvideo', pix_fmt='rgba', s='{}x{}'.format(width, height))
+                        .output(self.output_file, **{'plays': 0})
+                        .overwrite_output()
+                        .run_async(pipe_stdin=True, overwrite_output=True)
+                )
+                # Corresponding command line code
+                #ffmpeg -framerate 3 -i ./data/movie/movie_%03d.png -plays 0 ./data/movie/movie.apng
+            
+            if self.output_format == 'mp4': animation = animation[:,:,:,:3]
+        
+            for frame in animation:
+                process.stdin.write(frame.astype(np.uint8).tobytes())
+            process.stdin.close()
+            process.wait() 
 
 
 
