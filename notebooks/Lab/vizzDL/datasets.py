@@ -4,7 +4,6 @@ import json
 import time
 import folium
 import tensorflow as tf
-#from dotenv import load_dotenv
 from shapely.geometry import shape
 from google.oauth2 import service_account
 
@@ -97,16 +96,22 @@ class ee_TFRecords(object):
         map.add_child(folium.LayerControl())
         return map
 
-    def create_geostore_from_geojson(self, attributes, zoom=6):
+    def create_geostore_from_geojson(self, geojsons, zoom=6):
         """Parse valid geojson into a geostore object and register it to a
         Gestore object on a server. 
         Parameters
         ----------
-        attributes: list
-            List of geojsons with the trainig, validation, and testing polygons.
+        geojsons: list
+            List of geojson files with the trainig, validation, and testing polygons.
         zoom: int
             A z-level for the map.
         """
+        # Read GeoJSONs
+        attributes = []
+        for json_file in geojsons:
+            with open(json_file, 'r') as j:
+                attributes.append(json.loads(j.read()))
+
         # Get MultiPolygon geostore object
         self.params['geostore'] = polygons_to_geoStoreMultiPoligon(attributes)
 
