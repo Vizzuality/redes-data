@@ -6,8 +6,8 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
 
-from . import model
-from .datasets import read_TFRecords
+from .. import model
+from ..datasets import read_TFRecords
 
 class Trainer(object):
     """

@@ -3,13 +3,13 @@ import os
 import json
 import time
 import folium
+import argparse
 import tensorflow as tf
 from shapely.geometry import shape
 from google.oauth2 import service_account
 
-from . import ee_collection_specifics
-
-from .utils import polygons_to_geoStoreMultiPoligon, get_geojson_string,\
+from utils import ee_collection_specifics
+from utils.util import polygons_to_geoStoreMultiPoligon, get_geojson_string,\
     GeoJSONs_to_FeatureCollections, check_status_data
 
 class ee_TFRecords(object):
@@ -45,7 +45,7 @@ class ee_TFRecords(object):
 
         ee.Initialize(credentials=self.ee_credentials)
 
-    def composite(self, slugs=["Sentinel-2-Top-of-Atmosphere-Reflectance"], init_date='2019-01-01', end_date='2019-12-31', lat=39.31, lon=0.302, zoom=6):
+    def composite(self, slugs=["Sentinel-2-Top-of-Atmosphere-Reflectance"], init_date='2019-01-01', end_date='2019-12-31', lat=39.31, lon=0.302, zoom=6, show_map=True):
         """
         Returns a folium map with the composites.
         Parameters
@@ -62,6 +62,8 @@ class ee_TFRecords(object):
             A longitude to focus the map on.
         zoom: int
             A z-level for the map.
+        show_map: bool
+            Display the composites on a leaflet map.
         """
         self.params['slugs'] = slugs
         self.params['init_date'] = init_date
@@ -83,18 +85,20 @@ class ee_TFRecords(object):
         for n, slug in enumerate(slugs):
             composites.append(ee_collection_specifics.Composite(slug)(init_date, end_date))
 
-            mapid = composites[n].getMapId(ee_collection_specifics.vizz_params_rgb(slug))
-            tiles_url = self.ee_tiles.format(**mapid)
-            folium.TileLayer(
-            tiles=tiles_url,
-            attr='Google Earth Engine',
-            overlay=True,
-            name=slug).add_to(map)
+            if show_map:
+                mapid = composites[n].getMapId(ee_collection_specifics.vizz_params_rgb(slug))
+                tiles_url = self.ee_tiles.format(**mapid)
+                folium.TileLayer(
+                tiles=tiles_url,
+                attr='Google Earth Engine',
+                overlay=True,
+                name=slug).add_to(map)
 
         self.composites = composites
 
-        map.add_child(folium.LayerControl())
-        return map
+        if show_map:
+            map.add_child(folium.LayerControl())
+            return map
 
     def create_geostore_from_geojson(self, geojsons, zoom=6):
         """Parse valid geojson into a geostore object and register it to a
@@ -364,8 +368,6 @@ class ee_TFRecords(object):
             Number of samples to extract from each polygon.
         kernel_size: int
             An integer specifying the height and width of the 2D images.
-        scaling_factor: int
-            Scaling Factor for Super-Resolution.
         """
         self.params['scale'] = scale
         self.params['sample_size'] = sample_size
@@ -548,4 +550,38 @@ class read_TFRecords():
         dataset = self.get_dataset(glob)
         dataset = dataset.batch(1).repeat()
         return dataset
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description='Create TFRecords')
+    parser.add_argument('-fp','--folder_path', help='Path to the folder where dataset parameters will be stored.',\
+         default='../../datasets/processed/Models/')
+    parser.add_argument('-dn','--dataset_name', help='Name of the folder where dataset parameters will be stored.',\
+         default='L8_S2_SR_x3_test')
+    parser.add_argument('-sl','--slugs', help='A list of dataset slugs.',nargs='+',\
+         default=['Landsat-8-Surface-Reflectance', 'Sentinel-2-Top-of-Atmosphere-Reflectance'])
+    parser.add_argument('-id','--init_date', help='Initial date of the composite.', default='2019-01-01')
+    parser.add_argument('-ed','--end_date', help='Last date of the composite.', default='2019-12-31')
+    parser.add_argument('-gj','--geojsons', help='GeoJSON file paths with the regions.', nargs='+',\
+         default=["../../datasets/raw/train_atts_test.geojson", "../../datasets/raw/valid_atts_test.geojson", "../../datasets/raw/test_atts_test.geojson"])
+    parser.add_argument('-ib','--input_bands', help='List of input bands.', nargs='+', default=['RGB'])
+    parser.add_argument('-ob','--output_bands', help='List of output bands.', nargs='+', default=['RGB'])
+    parser.add_argument('-i','--input_rgb_bands', help='List of new input RGB band names.', nargs='+', default=['L8_R', 'L8_G', 'L8_B'],)
+    parser.add_argument('-o','--output_rgb_bands', help='List of new output RGB band names.', nargs='+', default=['S2_R', 'S2_G', 'S2_B'])
+    parser.add_argument('-s','--scale', help='Scale of the images.', default=10)
+    parser.add_argument('-ss','--sample_size', help='Number of samples to extract from each polygon.', default=2000)
+    parser.add_argument('-ks','--kernel_size', help='An integer specifying the height and width of the 2D images.', default=192)
+    parsed = vars(parser.parse_args())
+
+    print("Creating dataset object.")
+    dataset = ee_TFRecords(parsed['folder_path'], parsed['dataset_name'])
+    print("Creating composites.")
+    dataset.composite(slugs = parsed['slugs'], init_date = parsed['init_date'], end_date = parsed['end_date'], show_map=False)
+    print("Creating a Geostore.")
+    dataset.create_geostore_from_geojson(parsed['geojsons'])
+    print("Selecting bands.")
+    dataset.select_bands(parsed['input_bands'] , parsed['output_bands'], parsed['input_rgb_bands'] , parsed['output_rgb_bands'])
+    print("Exporting TFRecord files to Google Cloud Storage.")
+    dataset.export_TFRecords(parsed['scale'] , parsed['sample_size'], parsed['kernel_size'])
+
 

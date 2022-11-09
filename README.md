@@ -58,44 +58,17 @@ Project Organization
 ------------
 #### First, setup one of your environments
 
+- Create a `.env` file in the root directory following the `.env.example` template. Add the following variables:
+
+    - EE_PRIVATE_KEY: *Google Cloud Platform service account key.*
+    - GCSBUCKET: *Bucket name.*
+    - PROJECT_ID: *Google Project ID.*
+
+    The service account has to be [registered to use Earth Engine](https://developers.google.com/earth-engine/guides/service_account#register-the-service-account-to-use-earth-engine).
+
 - With [docker]() and [docker-compose]() in your system, you can develop inside containers:
 ``` bash
 make up
-```
-And if you want to get into the main container:
-``` bash
-make inside
-```
-------------
-- Install requirements on your machine:
-``` bash
-make requirements
-```
-- Set up a new environment in your machine
-``` bash
-make create_environment && make requirements
-```
-------------
-#### Second, Init git and initialize the github pre-hooks
-``` bash
-make init-prehooks
-```
-By default this will treat your project remote branch as `git@github.com:Vizzuality/Redes` if you need to change it don't forget to modify the `Makefile` before running this command. Take into account that this will create a new repository under the vizzuality organization once you `git push -u origin master`
-
-#### Happy coding and science!
-
-You can run your tests:
-``` bash
-make test
-```
-
-You can lint and reformat your code:
-``` bash
-make lint
-```
-or up and serve the documentation:
-``` bash
-make serve-doc
 ```
 
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
@@ -130,16 +103,60 @@ In Figure 2 we display a time-lapse video of a growing city in Angola from 1988 
 *Fig 2. (Top) Time-lapse video of a growing city in Angola from 1988 to 2019 observed with Landsat. (Bottom) The corresponding area in 2019 was observed with Sentinel 2.*
 
 To do this, we have developed the following activities:
-- **A1.1** - A software package to create training, validation and test datasets in TFRecord format:
-    - [Code](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/vizzDL/datasets.py)
-    - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/01_TFRecords_from_GEE.ipynb) 
+**A1.1** - A software package to create training, validation and test datasets in TFRecord format:
+- [Code](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/vizzDL/datasets.py)
+- [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/01_TFRecords_from_GEE.ipynb) 
 
-- **A1.2** - Training of super-resolution convolutional neural networks.
-    - [Code](https://github.com/Vizzuality/redes-data/tree/main/notebooks/Lab/vizzDL)
-    - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/07_train_SRGAN_model.ipynb)
+The TFRecords can be created from the [notebook](/notebooks/Lab/01_TFRecords_from_GEE.ipynb) or the command line.
+For the latter, first enter into the docker terminal by typing
+```
+docker exec -it redes_jupyter_notebook bash
+``` 
+and then move to the following directory
+```
+cd tf/notebooks/Lab
+```
+Pre-defined geometries from where the images will be extracted are provided in the GitHub release as GeoJSON files.They can be found in the network directory. We provide the script `datasets.py`.
+```
+python vizzDL/datasets.py --dataset_name "L8_S2_SR_x3_test" --geojsons "../../datasets/raw/train_atts_test.geojson" "../../datasets/raw/valid_atts_test.geojson" "../../datasets/raw/test_atts_test.geojson"
+```
 
-- **A1.3** - Creation of video mosaics.
-    - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/05_Animated-tiles.ipynb)
+All the parameters are described here:
+```
+--folder_path = '../../datasets/processed/Models/'
+    Path to the folder where dataset parameters will be stored.
+--dataset_name = 'L8_S2_SR_x3_test'
+    Name of the folder where dataset parameters will be stored.
+--slugs = 'Landsat-8-Surface-Reflectance' 'Sentinel-2-Top-of-Atmosphere-Reflectance'
+    A list of dataset slugs.
+--init_date = '2019-01-01'
+    Initial date of the composite.
+--end_date = '2019-12-31'
+    Last date of the composite.'
+--geojsons = "../../datasets/raw/train_atts_test.geojson" "../../datasets/raw/valid_atts_test.geojson" "../../datasets/raw/test_atts_test.geojson"]ç
+    GeoJSON file paths with the regions.
+--input_bands = 'RGB'
+    List of input bands.
+--output_bands = 'RGB'
+    List of output bands.
+--input_rgb_bands = 'L8_R' 'L8_G' 'L8_B'
+    List of new input RGB band names.
+--output_rgb_bands = 'S2_R', 'S2_G', 'S2_B'
+    List of new output RGB band names.  
+--scale = 10
+    Scale of the images.
+--sample_size = 2000
+    Number of samples to extract from each polygon.
+--kernel_size = 192
+    An integer specifying the height and width of the 2D images.
+```
+
+**A1.2** - Training of super-resolution convolutional neural networks.
+- [Code](https://github.com/Vizzuality/redes-data/tree/main/notebooks/Lab/vizzDL)
+- [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/07_train_SRGAN_model.ipynb)
+
+**A1.3** - Creation of video mosaics.
+- [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/05_Animated-tiles.ipynb)
 
 ###  References
 1. <a id="R1" />[Rahaman, K. R., Hassan, Q. K., & Ahmed, M. R. (2017)](https://www.mdpi.com/2220-9964/6/6/168). Pan-sharpening of Landsat-8 images and its application in calculating vegetation greenness and canopy water contents. ISPRS International Journal of Geo-Information, 6(6), 168.

@@ -13,7 +13,7 @@ import ipyleaflet as ipyl
 from shapely.geometry import shape
 
 from .train_v1 import Trainer
-from . import ee_collection_specifics
+from .. import ee_collection_specifics
 from .utils import from_np_to_xr
 
 
