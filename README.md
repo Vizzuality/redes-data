@@ -155,6 +155,37 @@ All the parameters are described here:
 - [Code](https://github.com/Vizzuality/redes-data/tree/main/notebooks/Lab/vizzDL)
 - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/07_train_SRGAN_model.ipynb)
 
+The model can be trained from the [notebook](/notebooks/Lab/03_train_SRGAN_model.ipynb) or the command line.
+
+Pre-trained models are provided in the GitHub release.They can be found in the `'../../datasets/processed/Models/` directory. If you want to train the model with your own data, we provide the script train.py to this aim. We also provide the original parameters used in the training of the networks.
+```
+python vizzDL/train.py
+```
+
+All the parameters are described here:
+```
+--folder_path = '../../datasets/processed/Models/'
+    Path to the folder where dataset parameters will be stored.
+--dataset_name = 'L8_S2_SR_x3_test'
+    Name of the folder where dataset parameters will be stored.
+--model_name = 'srgan_generator_L8_to_S2_x3_test'
+    Name of the model.
+--model = 'srgan_generator'
+    Keras model.
+--scaling_factor = 3
+    Scaling Factor for Super-Resolution.
+--normalize_rgb = True
+Boolean to normalize RGB bands.
+--norm_range = [0,1] [-1,1]
+    List with two values showing the normalization range.
+--batch_size = 32
+    A number of samples processed before the model is updated.
+--shuffle_size = 2000
+    Number of samples to be shuffled.
+--epochs = 25
+    Number of complete passes through the training dataset.
+```
+
 **A1.3** - Creation of video mosaics.
 - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/05_Animated-tiles.ipynb)
 

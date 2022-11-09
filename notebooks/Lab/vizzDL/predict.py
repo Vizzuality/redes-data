@@ -11,10 +11,9 @@ import xarray_leaflet
 import ipyleaflet as ipyl
 from shapely.geometry import shape
 
-from .utils import from_np_to_xr, bbox_to_webmercator,\
+from utils.util import from_np_to_xr,\
     normalize_01, normalize_m11, denormalize_01, denormalize_m11 
-from . import ee_collection_specifics
-from .models.CNN.super_resolution import srgan
+from utils import ee_collection_specifics
 
 class Predictor:
     """

@@ -2,6 +2,7 @@ import os
 import json
 import time
 
+import argparse
 import pandas as pd
 from tqdm import tqdm
 import tensorflow as tf
@@ -13,9 +14,9 @@ from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 from tensorflow.keras.applications.vgg19 import preprocess_input
 
-from .datasets import read_TFRecords
-from .models.CNN.super_resolution import srgan
-from .utils import display_lr_hr_sr
+from datasets import read_TFRecords
+from models.CNN.super_resolution import srgan
+from utils.util import display_lr_hr_sr
 
 class Trainer:
     """
@@ -65,6 +66,8 @@ class Trainer:
         ----------
         normalize_rgb: boolean
             Boolean to normalize RGB bands.
+        norm_range: list
+            List with two values showing the normalization range.
         batch_size: int
             A number of samples processed before the model is updated. 
             The size of a batch must be more than or equal to one and less than or equal to the number of samples in the training dataset.
@@ -294,5 +297,43 @@ class SrganTrainer:
         hr_loss = self.binary_cross_entropy(tf.ones_like(hr_out), hr_out)
         sr_loss = self.binary_cross_entropy(tf.zeros_like(sr_out), sr_out)
         return hr_loss + sr_loss
+
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description='Train model')
+    parser.add_argument('-fp','--folder_path', help="Path to the folder with the parameters created during TFRecords' creation.",\
+         default='../../datasets/processed/Models/')
+    parser.add_argument('-dn','--dataset_name', help="Name of the folder with the parameters created during TFRecords' creation.",\
+         default='L8_S2_SR_x3_test')
+    parser.add_argument('-mn','--model_name', help='Name of the model.',\
+         default='srgan_generator_L8_to_S2_x3_test')
+    parser.add_argument('-m','--model', help='Keras model.',  default='srgan_generator')
+    parser.add_argument('-sf','--scaling_factor', help='Scaling Factor for Super-Resolution.',\
+         default=3)
+    parser.add_argument('-n','--normalize_rgb', help='Boolean to normalize RGB bands.',\
+            default=True)
+    parser.add_argument('-nr','--norm_range', help='List with two values showing the normalization range.',\
+            nargs='+', default=[[0,1],[-1,1]])
+    parser.add_argument('-bs','--batch_size', help='A number of samples processed before the model is updated.',\
+            default=32)
+    parser.add_argument('-ss','--shuffle_size', help='Number of samples to be shuffled.',\
+            default=2000)
+    parser.add_argument('-e','--epochs', help='Number of complete passes through the training dataset.',\
+            default=25)
+    parsed = vars(parser.parse_args())
+
+    print("Creating trainer object.")
+    TFRecord = read_TFRecords(parsed['folder_path'], parsed['dataset_name'])
+    input_shape = (TFRecord.params['kernel_size']//parsed['scaling_factor'], TFRecord.params['kernel_size']//parsed['scaling_factor'], len(TFRecord.params['in_bands']))
+    print("Creating model.")
+    if parsed['model'] == 'srgan_generator':
+        generator = srgan.Generator(input_shape, parsed['scaling_factor']).generator()
+        print("Creating trainer object.")
+        trainer = regressionTrainer(folder_path=parsed['folder_path'], dataset_name=parsed['dataset_name'], model_name=parsed['model_name'], model=generator, scaling_factor=parsed['scaling_factor'])
+        print("Training model.")
+        trainer.train(parsed['normalize_rgb'], parsed['norm_range'], parsed['batch_size'], parsed['shuffle_size'], parsed['epochs'])
+
+
 
 
