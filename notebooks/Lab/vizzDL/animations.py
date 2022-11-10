@@ -16,8 +16,8 @@ from apng import APNG
 import ipyleaflet as ipyl
 from shapely.geometry import shape
 
-from . import ee_collection_specifics
-from .utils import from_np_to_xr, from_TMS_to_XYZ, create_movie_from_pngs,\
+from utils import ee_collection_specifics
+from utils.util import from_np_to_xr, from_TMS_to_XYZ, create_movie_from_pngs,\
     upload_local_directory_to_gcs, normalize_01, normalize_m11, denormalize_01, denormalize_m11 
 
 class Animation:
@@ -39,7 +39,7 @@ class Animation:
         ----------
         instrument: string
             Name of a instrument (Landsat or Sentinel).
-        geometry : GeoJSON
+        geometry : GeoJSON file.
             GeoJSON with a polygon.
         lat: float
             A latitude to focus the map on.
@@ -79,6 +79,10 @@ class Animation:
         self.map.add_control(control)
 
         if self.geometry:
+            # Read GeoJSONs
+            with open(self.geometry, 'r') as j:
+                self.geometry = json.loads(j.read())
+
             self.geometry['features'][0]['properties'] = {'style': {'color': "#2BA4A0", 'opacity': 1, 'fillOpacity': 0}}
             geo_json = ipyl.GeoJSON(
                 data=self.geometry
