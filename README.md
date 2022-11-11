@@ -107,6 +107,8 @@ To do this, we have developed the following activities:
 - [Code](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/vizzDL/datasets.py)
 - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/01_TFRecords_from_GEE.ipynb) 
 
+![](./assets/A1.1.png)
+
 The TFRecords can be created from the [notebook](/notebooks/Lab/01_TFRecords_from_GEE.ipynb) or the command line.
 For the latter, first enter into the docker terminal by typing
 ```
@@ -155,6 +157,8 @@ All the parameters are described here:
 - [Code](https://github.com/Vizzuality/redes-data/tree/main/notebooks/Lab/vizzDL/train.py)
 - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/03_train_SRGAN_model.ipynb)
 
+![](./assets/A1.2.png)
+
 The model can be trained from the [notebook](/notebooks/Lab/03_train_SRGAN_model.ipynb) or the command line.
 
 Pre-trained models are provided in the GitHub release. They can be found in the `'../../datasets/processed/Models/` directory. If you want to train the model with your own data, we provide the script train.py to this aim. We also provide the original parameters used in the training of the networks.
@@ -186,9 +190,11 @@ Boolean to normalize RGB bands.
     Number of complete passes through the training dataset.
 ```
 
-**A1.3** - Creation of video mosaics.
+**A1.3** - Creation of animated-tiles.
 - [Code](https://github.com/Vizzuality/redes-data/tree/main/notebooks/Lab/vizzDL/animations.py)
 - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/04_Animations.ipynb)
+
+![](./assets/A1.3.png)
 
 A pre-defined geometry from where the animated-tiles will be created is provided in the GitHub release as a GeoJSON file. It can be found in the `'../../datasets/raw/` directory. We provide the script `animations.py`.
 ```
