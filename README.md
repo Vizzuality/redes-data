@@ -116,7 +116,7 @@ and then move to the following directory
 ```
 cd tf/notebooks/Lab
 ```
-Pre-defined geometries from where the images will be extracted are provided in the GitHub release as GeoJSON files.They can be found in the network directory. We provide the script `datasets.py`.
+Pre-defined geometries from where the images will be extracted are provided in the GitHub release as GeoJSON files. They can be found in the `'../../datasets/raw/` directory. We provide the script `datasets.py`.
 ```
 python vizzDL/datasets.py --dataset_name "L8_S2_SR_x3_test" --geojsons "../../datasets/raw/train_atts_test.geojson" "../../datasets/raw/valid_atts_test.geojson" "../../datasets/raw/test_atts_test.geojson"
 ```
@@ -152,12 +152,12 @@ All the parameters are described here:
 ```
 
 **A1.2** - Training of super-resolution convolutional neural networks.
-- [Code](https://github.com/Vizzuality/redes-data/tree/main/notebooks/Lab/vizzDL)
-- [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/07_train_SRGAN_model.ipynb)
+- [Code](https://github.com/Vizzuality/redes-data/tree/main/notebooks/Lab/vizzDL/train.py)
+- [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/03_train_SRGAN_model.ipynb)
 
 The model can be trained from the [notebook](/notebooks/Lab/03_train_SRGAN_model.ipynb) or the command line.
 
-Pre-trained models are provided in the GitHub release.They can be found in the `'../../datasets/processed/Models/` directory. If you want to train the model with your own data, we provide the script train.py to this aim. We also provide the original parameters used in the training of the networks.
+Pre-trained models are provided in the GitHub release. They can be found in the `'../../datasets/processed/Models/` directory. If you want to train the model with your own data, we provide the script train.py to this aim. We also provide the original parameters used in the training of the networks.
 ```
 python vizzDL/train.py
 ```
@@ -187,7 +187,37 @@ Boolean to normalize RGB bands.
 ```
 
 **A1.3** - Creation of video mosaics.
-- [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/05_Animated-tiles.ipynb)
+- [Code](https://github.com/Vizzuality/redes-data/tree/main/notebooks/Lab/vizzDL/animations.py)
+- [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/04_Animations.ipynb)
+
+A pre-defined geometry from where the animated-tiles will be created is provided in the GitHub release as a GeoJSON file. It can be found in the `'../../datasets/raw/` directory. We provide the script `animations.py`.
+```
+python vizzDL/animations.py --geometry "../../datasets/raw/Menongue.geojson" --start_year 2019 --stop_year 2021
+```
+
+All the parameters are described here:
+```
+--instrument = 'Landsat'
+    Name of a instrument (Landsat or Sentinel).
+--geometry = "../../datasets/raw/Menongue.geojson"
+    GeoJSON file with a polygon,
+--start_year = 1988
+    First year.
+--stop_year = 2021
+    Last year.
+--model = 'srgan_generator'
+    Keras model.
+--norm_range = [[0,1],[-1,1]]
+    List with two values showing the normalization range.
+--folder_path = '../../datasets/processed/Tiles/'
+    Path to the folder to save the tiles.
+--region_name = 'Menongue'
+    Name of the folder to save the tiles.
+--min_z = 10 
+    Min zoom level.
+--max_z = 14
+    Min zoom level.
+```
 
 ###  References
 1. <a id="R1" />[Rahaman, K. R., Hassan, Q. K., & Ahmed, M. R. (2017)](https://www.mdpi.com/2220-9964/6/6/168). Pan-sharpening of Landsat-8 images and its application in calculating vegetation greenness and canopy water contents. ISPRS International Journal of Geo-Information, 6(6), 168.

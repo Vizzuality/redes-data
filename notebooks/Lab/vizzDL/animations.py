@@ -10,6 +10,7 @@ from PIL import Image
 import ee
 import ffmpeg
 import requests
+import argparse
 import gdal2tiles
 import numpy as np
 from apng import APNG
@@ -17,8 +18,10 @@ import ipyleaflet as ipyl
 from shapely.geometry import shape
 
 from utils import ee_collection_specifics
+from models.CNN.super_resolution import srgan
 from utils.util import from_np_to_xr, from_TMS_to_XYZ, create_movie_from_pngs,\
     upload_local_directory_to_gcs, normalize_01, normalize_m11, denormalize_01, denormalize_m11 
+    
 
 class Animation:
     """
@@ -32,7 +35,7 @@ class Animation:
         self.ee_tiles = '{tile_fetcher.url_format}'
         ee.Initialize(credentials=self.ee_credentials)
 
-    def select_region(self, instrument, geometry=None, lat=39.31, lon=0.302, zoom=6):
+    def select_region(self, instrument, geometry=None, lat=39.31, lon=0.302, zoom=6, show_map=True):
         """
         Returns a leaflet map with the composites and allow area selection.
         Parameters
@@ -47,6 +50,8 @@ class Animation:
             A longitude to focus the map on.
         zoom: int
             A z-level for the map.
+        show_map: bool
+            Display the composites on a leaflet map.
         """
         self.instrument = instrument
         if instrument == 'Landsat':
@@ -61,6 +66,11 @@ class Animation:
         self.lon = lon
         self.zoom = zoom
 
+        if self.geometry:
+            # Read GeoJSONs
+            with open(self.geometry, 'r') as j:
+                self.geometry = json.loads(j.read())
+
         self.map = ipyl.Map(
             basemap=ipyl.basemap_to_tiles(ipyl.basemaps.OpenStreetMap.Mapnik),
             center=(self.lat, self.lon),
@@ -69,54 +79,51 @@ class Animation:
 
         composite = ee_collection_specifics.Composite(self.slug)('2019-01-01', '2019-12-31')
 
-        mapid = composite.getMapId(ee_collection_specifics.vizz_params_rgb(self.slug))
-        tiles_url = self.ee_tiles.format(**mapid)
+        if show_map:
+            mapid = composite.getMapId(ee_collection_specifics.vizz_params_rgb(self.slug))
+            tiles_url = self.ee_tiles.format(**mapid)
 
-        composite_layer = ipyl.TileLayer(url=tiles_url, name=self.slug)
-        self.map.add_layer(composite_layer)
+            composite_layer = ipyl.TileLayer(url=tiles_url, name=self.slug)
+            self.map.add_layer(composite_layer)
 
-        control = ipyl.LayersControl(position='topright')
-        self.map.add_control(control)
+            control = ipyl.LayersControl(position='topright')
+            self.map.add_control(control)
 
-        if self.geometry:
-            # Read GeoJSONs
-            with open(self.geometry, 'r') as j:
-                self.geometry = json.loads(j.read())
+            if self.geometry:
+                self.geometry['features'][0]['properties'] = {'style': {'color': "#2BA4A0", 'opacity': 1, 'fillOpacity': 0}}
+                geo_json = ipyl.GeoJSON(
+                    data=self.geometry
+                )
+                self.map.add_layer(geo_json)
 
-            self.geometry['features'][0]['properties'] = {'style': {'color': "#2BA4A0", 'opacity': 1, 'fillOpacity': 0}}
-            geo_json = ipyl.GeoJSON(
-                data=self.geometry
-            )
-            self.map.add_layer(geo_json)
+            else:
+                print('Draw a rectangle on map to select and area.')
 
-        else:
-            print('Draw a rectangle on map to select and area.')
+                draw_control = ipyl.DrawControl()
 
-            draw_control = ipyl.DrawControl()
-
-            draw_control.rectangle = {
-                "shapeOptions": {
-                    "color": "#2BA4A0",
-                    "fillOpacity": 0,
-                    "opacity": 1
+                draw_control.rectangle = {
+                    "shapeOptions": {
+                        "color": "#2BA4A0",
+                        "fillOpacity": 0,
+                        "opacity": 1
+                    }
                 }
-            }
 
-            feature_collection = {
-                'type': 'FeatureCollection',
-                'features': []
-            }
+                feature_collection = {
+                    'type': 'FeatureCollection',
+                    'features': []
+                }
 
-            def handle_draw(self, action, geo_json):
-                """Do something with the GeoJSON when it's drawn on the map"""    
-                feature_collection['features'].append(geo_json)
+                def handle_draw(self, action, geo_json):
+                    """Do something with the GeoJSON when it's drawn on the map"""    
+                    feature_collection['features'].append(geo_json)
 
-            draw_control.on_draw(handle_draw)
-            self.map.add_control(draw_control)
+                draw_control.on_draw(handle_draw)
+                self.map.add_control(draw_control)
 
-            self.geometry = feature_collection
+                self.geometry = feature_collection
 
-        return self.map
+            return self.map
 
     def create_collection(self, start_year, stop_year):
         """
@@ -541,6 +548,49 @@ class Animation:
                 process.stdin.write(frame.astype(np.uint8).tobytes())
             process.stdin.close()
             process.wait() 
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description='Create animated-tiles')
+    parser.add_argument('-i','--instrument', help="Name of a instrument (Landsat or Sentinel).",\
+         default='Landsat')
+    parser.add_argument('-g','--geometry', help="GeoJSON file with a polygon",\
+         default="../../datasets/raw/Menongue.geojson")
+    parser.add_argument('-f','--start_year', help="First year", default=1988)
+    parser.add_argument('-l','--stop_year', help="Last year", default=2021)
+    parser.add_argument('-m','--model', help='Keras model.',  default='srgan_generator')
+    parser.add_argument('-nr','--norm_range', help='List with two values showing the normalization range.',\
+            nargs='+', default=[[0,1],[-1,1]])
+    parser.add_argument('-fp','--folder_path', help='Path to the folder to save the tiles.',\
+            default='../../datasets/processed/Tiles/')
+    parser.add_argument('-rn','--region_name', help='Name of the folder to save the tiles.',\
+            default='Menongue')
+    parser.add_argument('-iz','--min_z', help='Min zoom level.',\
+            default=10)
+    parser.add_argument('-az','--max_z', help='Min zoom level.',\
+            default=14)
+    parsed = vars(parser.parse_args())
+
+
+    print("Creating animation object.")
+    animation = Animation()
+    print("Selecting region.")
+    animation.select_region(instrument=parsed['instrument'], geometry=parsed['geometry'], show_map=False)
+    print("Creating animation as a Numpy array.")
+    video = animation.video_as_array(start_year=int(parsed['start_year']), stop_year=int(parsed['stop_year']))
+    print("Predict.")
+    if parsed['model'] == 'srgan_generator':
+        # Location of model weights
+        weights_dir = '../../datasets/processed/Models/L8_S2_SR_x3/srgan_generator_L8_to_S2_x3'
+        weights_file = lambda filename: os.path.join(weights_dir, filename)
+
+        pre_generator = srgan.Generator(input_shape=(None, None, 3), scale=3).generator()
+        pre_generator.load_weights(weights_file('model_weights.h5'))
+
+        animation.predict(model = pre_generator, norm_range=parsed['norm_range'])
+        print("Creating animated-tiles.")
+        #animation.create_animated_tiles(folder_path = parsed['folder_path'], region_name = parsed['region_name'], minZ = parsed['min_z'], maxZ=parsed['max_z'])
+
 
 
 
