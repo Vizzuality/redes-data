@@ -157,7 +157,8 @@ All the parameters are described here:
 - [Code](https://github.com/Vizzuality/redes-data/tree/main/notebooks/Lab/vizzDL/train.py)
 - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/03_train_SRGAN_model.ipynb)
 
-![](./assets/A1.2.png)
+![](./assets/2021_LR-SR.gif)
+*Fig 3. Example of a trained model applied to Landsat images.*
 
 The model can be trained from the [notebook](/notebooks/Lab/03_train_SRGAN_model.ipynb) or the command line.
 
@@ -194,7 +195,8 @@ Boolean to normalize RGB bands.
 - [Code](https://github.com/Vizzuality/redes-data/tree/main/notebooks/Lab/vizzDL/animations.py)
 - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/04_Animations.ipynb)
 
-![](./assets/A1.3.png)
+![](./assets/Tenerife_sur_Landsat_slow.gif)
+*Fig 4. Example of animation.*
 
 A pre-defined geometry from where the animated-tiles will be created is provided in the GitHub release as a GeoJSON file. It can be found in the `'../../datasets/raw/` directory. We provide the script `animations.py`.
 ```

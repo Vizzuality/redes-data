@@ -11,8 +11,8 @@ import numpy as np
 import ipyleaflet as ipyl
 from shapely.geometry import shape
 
-from . import ee_collection_specifics
-from .utils import from_np_to_xr, bbox_to_webmercator
+from utils import ee_collection_specifics
+from utils.util import from_np_to_xr
 
 class Composite:
     """
