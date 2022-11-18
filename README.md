@@ -103,6 +103,7 @@ In Figure 2 we display a time-lapse video of a growing city in Angola from 1988 
 *Fig 2. (Top) Time-lapse video of a growing city in Angola from 1988 to 2019 observed with Landsat. (Bottom) The corresponding area in 2019 was observed with Sentinel 2.*
 
 To do this, we have developed the following activities:
+
 **A1.1** - A software package to create training, validation and test datasets in TFRecord format:
 - [Code](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/vizzDL/datasets.py)
 - [Notebook](https://github.com/Vizzuality/redes-data/blob/main/notebooks/Lab/01_TFRecords_from_GEE.ipynb) 
